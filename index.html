@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ezz-Gestion</title>
+  <link rel="stylesheet" href="shared/styles.css?v=29" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="header-title" id="header-title">Ezz-Gestion</div>
+      <div class="header-actions">
+        <div id="maison-controls" style="display:none;">
+          <button type="button" class="month-btn" data-action="open-month-panel">📅 <span id="month-btn-label"></span></button>
+        </div>
+        <button class="month-btn" id="logout-btn" style="display:none;background:var(--danger);color:#fff;border:none;padding:8px 12px;">🚪</button>
+      </div>
+    </header>
+    <div class="subtabs" id="subtabs"></div>
+    <main id="main"></main>
+    <div id="toast"></div>
+    <nav class="bottom-nav" id="bottom-nav" style="display:none;">
+      <button type="button" class="nav-item" data-module="tresorerie">
+        <span class="nav-indicator"></span>
+        <span class="nav-icon">💰</span>
+        <span class="nav-label">Trésorerie</span>
+      </button>
+      <button type="button" class="nav-item active" data-module="maison">
+        <span class="nav-indicator"></span>
+        <span class="nav-icon">🏠</span>
+        <span class="nav-label">Course</span>
+      </button>
+      <button type="button" class="nav-item" data-module="maladie">
+        <span class="nav-indicator"></span>
+        <span class="nav-icon">🏥</span>
+        <span class="nav-label">Maladie</span>
+      </button>
+      <button type="button" class="nav-item" data-module="eau-elec">
+        <span class="nav-indicator"></span>
+        <span class="nav-icon">⚡</span>
+        <span class="nav-label">Eau &amp; Elec</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="modal-root"></div>
+
+  <div id="auth-overlay" style="display:none;">
+    <div class="auth-box stack">
+      <h1>Connexion</h1>
+      <form class="form-col" id="auth-form">
+        <input class="field" type="text" id="auth-username" placeholder="Nom d'utilisateur" required />
+        <input class="field" type="password" id="auth-password" placeholder="Mot de passe" required />
+        <button type="submit" class="btn-primary" id="auth-login">Se connecter</button>
+      </form>
+      <div id="auth-msg" class="small-label" style="color:var(--danger);margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <div id="change-pwd-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:200;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+    <div style="width:100%;max-width:420px;">
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--month),var(--week));border-radius:20px;display:inline-flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,0.15);">🔑</div>
+        <h1 style="font-size:22px;font-weight:800;margin:0 0 8px;color:var(--ink);">Première connexion</h1>
+        <p style="font-size:14px;color:var(--muted);margin:0;line-height:1.5;">Pour votre sécurité, choisissez<br>un nouveau mot de passe personnel.</p>
+      </div>
+      <form class="form-col" id="change-pwd-form" style="gap:12px;">
+        <input class="field" type="password" id="new-pwd" placeholder="Nouveau mot de passe (min. 8 caractères)" required minlength="8" />
+        <input class="field" type="password" id="confirm-pwd" placeholder="Confirmer le mot de passe" required minlength="8" />
+        <button type="submit" class="btn-primary" style="margin-top:4px;padding:14px;">✅ Valider et accéder</button>
+      </form>
+      <div id="change-pwd-msg" class="small-label" style="color:var(--danger);margin-top:12px;text-align:center;min-height:18px;"></div>
+      <div style="text-align:center;margin-top:24px;">
+        <button id="back-to-login-btn" style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:8px 16px;">← Retour à la connexion</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=29"></script>
+</body>
+</html>
