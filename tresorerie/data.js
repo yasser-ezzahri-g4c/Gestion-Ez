@@ -67,7 +67,7 @@ export function getSystemDetailTitle(sourceType) {
 }
 
 export const ui = {
-  subTab: "synthese",
+  subTab: "dashboard",
   viewedMonthKey: null,
   monthPanelOpen: false,
   expanded: new Set(),

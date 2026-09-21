@@ -4,7 +4,7 @@ import { resetState as resetMaisonState } from "./maison/data.js";
 import { resetState as resetTresorerieState } from "./tresorerie/data.js";
 import { resetState as resetMaladieState } from "./maladie/data.js";
 import { resetState as resetEauState } from "./eau-elec/data.js";
-import { invalidateWalletCache } from "./shared/wallet.js";
+import { hasOpeningBalance, invalidateWalletCache, loadWalletData } from "./shared/wallet.js";
 
 initNav();
 
@@ -27,6 +27,8 @@ initAuth({
     document.getElementById("subtabs").innerHTML = "";
   },
   onAuthenticated: async () => {
+    await loadWalletData();
+    if (!hasOpeningBalance()) sessionStorage.setItem("ezz-module", "tresorerie");
     await bootActiveModule();
   },
 });

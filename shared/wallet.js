@@ -71,10 +71,14 @@ export function getWalletCategoriesByDirection(direction) {
 }
 
 function walletCategoryNameTaken(name, excludeId = null) {
-  const key = name.trim().toLowerCase();
+  const key = normalizeWalletCategoryName(name);
   return getUserWalletCategories().some(
-    c => c.id !== excludeId && c.name.toLowerCase() === key,
+    c => c.id !== excludeId && normalizeWalletCategoryName(c.name) === key,
   );
+}
+
+function normalizeWalletCategoryName(name) {
+  return String(name || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("fr");
 }
 
 function movementsForMonth(monthKey) {
@@ -183,22 +187,19 @@ export async function deleteMovementByRef(refKey) {
 }
 
 export async function setOpeningBalance(monthKey, amount) {
-  if (monthKey !== TRESORERIE_START_MONTH) {
-    flash("Le solde actuel ne se saisit que pour le premier mois.", true);
-    return false;
-  }
   if (hasOpeningBalance()) {
     flash("Le solde actuel est déjà fixé et ne peut plus être modifié.", true);
     return false;
   }
   const n = Number(amount);
   if (!Number.isFinite(n) || n < 0) { flash("Montant invalide.", true); return false; }
+  const openingMonthKey = TRESORERIE_START_MONTH;
   const ok = await upsertMovement({
-    monthKey,
+    monthKey: openingMonthKey,
     amount: n,
     sourceModule: "tresorerie",
     sourceType: "opening",
-    refKey: `opening:${monthKey}`,
+    refKey: `opening:${openingMonthKey}`,
     label: "Solde actuel",
   });
   if (ok) flash("Solde actuel enregistré.");
@@ -361,8 +362,6 @@ export async function addManualExpense(monthKey, categoryId, amount, label) {
   }
   const lbl = label?.trim();
   if (!lbl) { flash("Le libellé est obligatoire.", true); return false; }
-  const msg = affordMessage(monthKey, amt);
-  if (msg) { flash(msg, true); return false; }
   const { data, error } = await supabaseClient.from("wallet_movements")
     .insert({
       month_key: monthKey,
@@ -461,8 +460,8 @@ export async function deleteManualMovement(id) {
   return true;
 }
 
-export async function addWalletCategory(name, direction) {
-  const n = name.trim();
+export async function addWalletCategory(name, direction, isFixed = false, icon = null) {
+  const n = String(name || "").normalize("NFKC").trim().replace(/\s+/g, " ");
   if (!n) { flash("Le nom de la catégorie est obligatoire.", true); return false; }
   if (!["depense", "revenue"].includes(direction)) {
     flash("Type de catégorie invalide.", true);
@@ -473,14 +472,20 @@ export async function addWalletCategory(name, direction) {
     return false;
   }
   const { data, error } = await supabaseClient.from("wallet_categories")
-    .insert({ name: n, is_system: false, direction }).select().single();
+    .insert({
+      name: n,
+      is_system: false,
+      direction,
+      is_fixed: Boolean(isFixed),
+      icon: String(icon || "").trim() || null,
+    }).select().single();
   if (error) { flash(getErrorMessage(error, "Erreur ajout catégorie."), true); return false; }
   categoriesCache.push(data);
   flash("Catégorie ajoutée.");
-  return true;
+  return data;
 }
 
-export async function updateWalletCategory(id, name, direction) {
+export async function updateWalletCategory(id, name, direction, isFixed = false, icon = null) {
   const cat = getUserWalletCategories().find(c => c.id === id);
   if (!cat) return false;
   const n = name.trim();
@@ -494,7 +499,12 @@ export async function updateWalletCategory(id, name, direction) {
     return false;
   }
   const { data, error } = await supabaseClient.from("wallet_categories")
-    .update({ name: n, direction }).eq("id", id).select().single();
+    .update({
+      name: n,
+      direction,
+      is_fixed: Boolean(isFixed),
+      icon: String(icon || "").trim() || null,
+    }).eq("id", id).select().single();
   if (error) { flash(getErrorMessage(error, "Erreur modification catégorie."), true); return false; }
   const idx = categoriesCache.findIndex(c => c.id === id);
   if (idx >= 0) categoriesCache[idx] = data;
@@ -512,6 +522,76 @@ export async function deleteWalletCategory(id) {
   categoriesCache = categoriesCache.filter(c => c.id !== id);
   flash("Catégorie supprimée.");
   return true;
+}
+
+const DEFAULT_WALLET_CATEGORIES = [
+  { name: "Eau", direction: "depense", is_fixed: true, icon: "💧" },
+  { name: "Électricité", direction: "depense", is_fixed: true, icon: "⚡" },
+  { name: "Wi-Fi", direction: "depense", is_fixed: true, icon: "📶" },
+  { name: "Loyer", direction: "depense", is_fixed: true, icon: "🏠" },
+  { name: "Courses", direction: "depense", is_fixed: false, icon: "🛒" },
+  { name: "Transport", direction: "depense", is_fixed: false, icon: "🚌" },
+  { name: "Salaire", direction: "revenue", is_fixed: true, icon: "💼" },
+];
+
+export async function ensureDefaultWalletCategories() {
+  for (const category of DEFAULT_WALLET_CATEGORIES) {
+    if (!walletCategoryNameTaken(category.name)) {
+      const created = await addWalletCategory(
+        category.name,
+        category.direction,
+        category.is_fixed,
+        category.icon,
+      );
+      if (!created) return false;
+    }
+  }
+  return true;
+}
+
+export function totalForCategory(categoryId) {
+  const category = getWalletCategories().find(item => item.id === categoryId);
+  const systemTypesByName = {
+    eau: ["water_pay"],
+    "électricité": ["elec_pay"],
+    courses: ["budget_month", "budget_week"],
+    course: ["budget_month", "budget_week"],
+    salaire: ["salary"],
+  };
+  const linkedSystemTypes = systemTypesByName[normalizeWalletCategoryName(category?.name)] || [];
+  return getMovements()
+    .filter(m => (m.category_id === categoryId && m.source_type === "manual")
+      || linkedSystemTypes.includes(m.source_type))
+    .reduce((sum, movement) => sum + Math.abs(Number(movement.amount)), 0);
+}
+
+export function getFinancialOverview() {
+  const openingMovement = getMovements().find(m => m.source_type === "opening");
+  const initialBalance = openingMovement ? Number(openingMovement.amount) : 0;
+  const transactions = getMovements().filter(m => m.source_type !== "opening");
+  const totalRevenue = transactions
+    .filter(m => Number(m.amount) > 0)
+    .reduce((sum, movement) => sum + Number(movement.amount), 0);
+  const totalExpense = transactions
+    .filter(m => Number(m.amount) < 0)
+    .reduce((sum, movement) => sum + Math.abs(Number(movement.amount)), 0);
+  return {
+    initialBalance,
+    totalRevenue,
+    totalExpense,
+    currentBalance: initialBalance + totalRevenue - totalExpense,
+  };
+}
+
+export function getFinancialHistory() {
+  return getMovements()
+    .filter(m => m.source_type !== "opening")
+    .slice()
+    .sort((a, b) => {
+      const dateA = a.occurred_at || a.created_at || a.movement_date || "";
+      const dateB = b.occurred_at || b.created_at || b.movement_date || "";
+      return dateB.localeCompare(dateA);
+    });
 }
 
 function sumManualByDirection(monthKey, direction) {
