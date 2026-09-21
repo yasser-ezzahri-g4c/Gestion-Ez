@@ -488,7 +488,7 @@ export async function addWalletCategory(name, direction, isFixed = false, icon =
 export async function updateWalletCategory(id, name, direction, isFixed = false, icon = null) {
   const cat = getUserWalletCategories().find(c => c.id === id);
   if (!cat) return false;
-  const n = name.trim();
+  const n = String(name || "").normalize("NFKC").trim().replace(/\s+/g, " ");
   if (!n) { flash("Le nom de la catégorie est obligatoire.", true); return false; }
   if (!["depense", "revenue"].includes(direction)) {
     flash("Type de catégorie invalide.", true);
@@ -516,7 +516,7 @@ export async function deleteWalletCategory(id) {
   const cat = getWalletCategories().find(c => c.id === id);
   if (!cat || cat.is_system) return false;
   const used = getMovements().some(m => m.category_id === id);
-  if (used) { flash("Impossible : des charges utilisent cette catégorie.", true); return false; }
+  if (used) { flash("Impossible : des transactions utilisent cette catégorie.", true); return false; }
   const { error } = await supabaseClient.from("wallet_categories").delete().eq("id", id);
   if (error) { flash(getErrorMessage(error, "Erreur suppression catégorie."), true); return false; }
   categoriesCache = categoriesCache.filter(c => c.id !== id);

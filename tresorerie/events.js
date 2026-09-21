@@ -1,5 +1,5 @@
 import { getActiveModule } from "../shared/router.js";
-import { addManualExpense, addManualRevenue, addWalletCategory, ensureDefaultWalletCategories, loadWalletData, setOpeningBalance } from "../shared/wallet.js";
+import { addManualExpense, addManualRevenue, addWalletCategory, deleteWalletCategory, ensureDefaultWalletCategories, loadWalletData, setOpeningBalance, updateWalletCategory } from "../shared/wallet.js";
 import { activeMonthKey, flash } from "../shared/utils.js";
 import { ui } from "./data.js";
 import { render } from "./render.js";
@@ -9,7 +9,7 @@ export function setupEvents() {
   document.addEventListener("submit", onSubmit);
 }
 
-function onClick(event) {
+async function onClick(event) {
   if (getActiveModule() !== "tresorerie") return;
   if (event.target.classList?.contains("overlay") && event.target.dataset.overlayClose === "modal") {
     ui.modal = null; render(); return;
@@ -20,6 +20,13 @@ function onClick(event) {
   if (action === "set-subtab") { ui.subTab = target.dataset.tab; render(); }
   else if (action === "open-quick-amount") { ui.modal = { type: "quick-amount", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-add-category") { ui.modal = { type: "add-category", direction: target.dataset.direction }; render(); }
+  else if (action === "open-edit-category") { ui.modal = { type: "edit-category", categoryId: target.dataset.categoryId }; render(); }
+  else if (action === "open-delete-category") { ui.modal = { type: "delete-category", categoryId: target.dataset.categoryId }; render(); }
+  else if (action === "confirm-delete-category") {
+    const deleted = await deleteWalletCategory(target.dataset.categoryId);
+    if (!deleted) return;
+    ui.modal = null; await loadWalletData(); render();
+  }
   else if (action === "close-modal") { ui.modal = null; render(); }
   else if (action === "pick-wallet-direction") setSegmentValue(target, "direction", "active-month", "active-week");
   else if (action === "pick-fixed") setSegmentValue(target, "is_fixed", "active-month", "active-month");
@@ -68,6 +75,16 @@ async function onSubmit(event) {
         flash("La catégorie a été créée, mais le montant n’a pas pu être ajouté.", true);
         await loadWalletData(); render(); return;
       }
+      ui.modal = null; await loadWalletData(); render();
+    } else if (form.dataset.form === "edit-finance-category") {
+      const updated = await updateWalletCategory(
+        form.dataset.categoryId,
+        form.name.value,
+        form.dataset.direction,
+        form.is_fixed.value === "true",
+        form.icon.value,
+      );
+      if (!updated) return;
       ui.modal = null; await loadWalletData(); render();
     }
   } finally {

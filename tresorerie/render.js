@@ -1,11 +1,12 @@
 import { ui } from "./data.js";
 import {
   getFinancialHistory, getFinancialOverview, getUserWalletCategories,
-  getWalletCategories, hasOpeningBalance, SOURCE_LABELS, totalForCategory,
+  getMovements, getWalletCategories, hasOpeningBalance, SOURCE_LABELS, totalForCategory,
 } from "../shared/wallet.js";
 import { esc, money } from "../shared/utils.js";
 
 const FALLBACK_ICONS = { depense: "💳", revenue: "💰" };
+const ICONS = ["", "💧", "⚡", "📶", "🏠", "🛒", "🚌", "💼", "🎁", "🍽️", "🎓", "💊", "💰"];
 
 export function render() {
   const controls = document.getElementById("maison-controls");
@@ -78,13 +79,16 @@ function renderCategorySection(title, direction, categories, total) {
 function renderCategoryCard(category) {
   const direction = category.direction || "depense";
   return `
-    <button type="button" class="finance-category-card ${direction}" data-action="open-quick-amount" data-category-id="${category.id}">
-      <span class="finance-category-icon">${esc(category.icon || FALLBACK_ICONS[direction])}</span>
-      ${category.is_fixed ? `<span class="finance-fixed-badge">Fixe</span>` : ""}
-      <span class="finance-category-name">${esc(category.name)}</span>
-      <strong>${money(totalForCategory(category.id))} MAD</strong>
-      <small>${direction === "depense" ? "dépensé" : "reçu"}</small>
-    </button>`;
+    <div class="finance-category-wrap">
+      <button type="button" class="finance-category-card ${direction}" data-action="open-quick-amount" data-category-id="${category.id}">
+        <span class="finance-category-icon">${esc(category.icon || FALLBACK_ICONS[direction])}</span>
+        ${category.is_fixed ? `<span class="finance-fixed-badge">Fixe</span>` : ""}
+        <span class="finance-category-name">${esc(category.name)}</span>
+        <strong>${money(totalForCategory(category.id))} MAD</strong>
+        <small>${direction === "depense" ? "dépensé" : "reçu"}</small>
+      </button>
+      <button type="button" class="finance-category-manage" data-action="open-edit-category" data-category-id="${category.id}" aria-label="Modifier ${esc(category.name)}" title="Modifier">•••</button>
+    </div>`;
 }
 
 function renderHistory() {
@@ -107,6 +111,8 @@ function renderHistoryItem(movement) {
 function renderModal() {
   if (ui.modal.type === "quick-amount") return renderQuickAmountModal(ui.modal);
   if (ui.modal.type === "add-category") return renderAddCategoryModal(ui.modal);
+  if (ui.modal.type === "edit-category") return renderEditCategoryModal(ui.modal);
+  if (ui.modal.type === "delete-category") return renderDeleteCategoryModal(ui.modal);
   return "";
 }
 
@@ -138,8 +144,45 @@ function renderAddCategoryModal(modal) {
         <button type="button" class="segment active-month" data-action="pick-fixed" data-value="true">Oui</button>
         <button type="button" class="segment" data-action="pick-fixed" data-value="false">Non</button></div>
       <input type="hidden" name="is_fixed" value="true" />
-      <label class="finance-field-label">Icône <span>(facultatif)</span></label><select class="field" name="icon">
-        <option value="">Icône automatique</option><option>💧</option><option>⚡</option><option>📶</option><option>🏠</option><option>🛒</option><option>🚌</option><option>💼</option><option>🎁</option><option>🍽️</option><option>🎓</option><option>💊</option><option>💰</option></select>
+      <label class="finance-field-label">Icône <span>(facultatif)</span></label><select class="field" name="icon">${renderIconOptions()}</select>
       <button type="submit" class="btn-primary">Créer et ajouter</button>
     </form></div></div>`;
+}
+
+function renderIconOptions(selected = "") {
+  return ICONS.map(icon => `<option value="${esc(icon)}" ${icon === selected ? "selected" : ""}>${icon || "Icône automatique"}</option>`).join("");
+}
+
+function renderEditCategoryModal(modal) {
+  const category = getWalletCategories().find(item => item.id === modal.categoryId);
+  if (!category) return "";
+  const direction = category.direction || "depense";
+  return `<div class="overlay" data-overlay-close="modal"><div class="sheet finance-sheet">
+    <div class="sheet-title"><span>Modifier la catégorie</span><button class="close-btn" data-action="close-modal">✕</button></div>
+    <form class="form-col" data-form="edit-finance-category" data-category-id="${category.id}" data-direction="${direction}">
+      <label class="finance-field-label">Nom</label><input class="field" name="name" maxlength="60" value="${esc(category.name)}" required />
+      <label class="finance-field-label">Type</label><div class="finance-readonly-type ${direction}">${direction === "depense" ? "Dépense" : "Revenu"}</div>
+      <label class="finance-field-label">Cet élément est-il fixe&nbsp;?</label><div class="segment-row">
+        <button type="button" class="segment ${category.is_fixed ? "active-month" : ""}" data-action="pick-fixed" data-value="true">Oui</button>
+        <button type="button" class="segment ${category.is_fixed ? "" : "active-month"}" data-action="pick-fixed" data-value="false">Non</button></div>
+      <input type="hidden" name="is_fixed" value="${category.is_fixed ? "true" : "false"}" />
+      <label class="finance-field-label">Icône <span>(facultatif)</span></label><select class="field" name="icon">${renderIconOptions(category.icon || "")}</select>
+      <button type="submit" class="btn-primary">Enregistrer les modifications</button>
+      <button type="button" class="finance-delete-category" data-action="open-delete-category" data-category-id="${category.id}">Supprimer cette catégorie</button>
+    </form></div></div>`;
+}
+
+function renderDeleteCategoryModal(modal) {
+  const category = getWalletCategories().find(item => item.id === modal.categoryId);
+  if (!category) return "";
+  const hasTransactions = getMovements().some(movement => movement.category_id === category.id);
+  return `<div class="overlay" data-overlay-close="modal"><div class="sheet finance-sheet">
+    <div class="sheet-title"><span>Supprimer ${esc(category.name)} ?</span><button class="close-btn" data-action="close-modal">✕</button></div>
+    ${hasTransactions
+      ? `<div class="finance-delete-warning"><strong>Suppression impossible</strong><p>Cette catégorie contient des transactions. Vous pouvez la renommer ou modifier son statut fixe, mais son historique doit être conservé.</p></div>`
+      : `<p class="finance-help">Cette catégorie n’a aucune transaction. Sa suppression sera définitive.</p>`}
+    <div class="btn-row">
+      ${hasTransactions ? "" : `<button type="button" class="btn-danger" data-action="confirm-delete-category" data-category-id="${category.id}">Supprimer définitivement</button>`}
+      <button type="button" class="btn-secondary" data-action="close-modal">${hasTransactions ? "Fermer" : "Annuler"}</button>
+    </div></div></div>`;
 }
