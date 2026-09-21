@@ -135,7 +135,8 @@ function renderAddCategoryModal(modal) {
     <div class="sheet-title"><span>Nouvelle catégorie</span><button class="close-btn" data-action="close-modal">✕</button></div>
     <form class="form-col" data-form="add-finance-category">
       <label class="finance-field-label">Nom</label><input class="field" name="name" maxlength="60" placeholder="Ex. Abonnement" required />
-      <label class="finance-field-label">Montant initial</label><div class="money-field"><input class="field" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" required /><span>MAD</span></div>
+      <label class="finance-field-label">Montant initial <span>(facultatif)</span></label><div class="money-field"><input class="field" name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" /><span>MAD</span></div>
+      <div class="finance-zero-hint">Laissez vide pour créer la card avec un montant de 0 MAD.</div>
       <label class="finance-field-label">Type</label><div class="segment-row">
         <button type="button" class="segment ${direction === "depense" ? "active-month" : ""}" data-action="pick-wallet-direction" data-value="depense">Dépense</button>
         <button type="button" class="segment ${direction === "revenue" ? "active-week" : ""}" data-action="pick-wallet-direction" data-value="revenue">Revenu</button></div>
@@ -144,13 +145,17 @@ function renderAddCategoryModal(modal) {
         <button type="button" class="segment active-month" data-action="pick-fixed" data-value="true">Oui</button>
         <button type="button" class="segment" data-action="pick-fixed" data-value="false">Non</button></div>
       <input type="hidden" name="is_fixed" value="true" />
-      <label class="finance-field-label">Icône <span>(facultatif)</span></label><select class="field" name="icon">${renderIconOptions()}</select>
-      <button type="submit" class="btn-primary">Créer et ajouter</button>
+      <label class="finance-field-label">Icône de votre choix <span>(facultatif)</span></label>${renderIconField("add-category-icon")}
+      <button type="submit" class="btn-primary">Créer la catégorie</button>
     </form></div></div>`;
 }
 
-function renderIconOptions(selected = "") {
-  return ICONS.map(icon => `<option value="${esc(icon)}" ${icon === selected ? "selected" : ""}>${icon || "Icône automatique"}</option>`).join("");
+function renderIconField(listId, selected = "") {
+  const suggestions = ICONS.filter(Boolean).map(icon => `<option value="${esc(icon)}"></option>`).join("");
+  return `<div class="finance-icon-field">
+    <input class="field" name="icon" value="${esc(selected)}" list="${listId}" maxlength="24" placeholder="Ex. 🎮, 🐱 ou ⭐" autocomplete="off" />
+    <datalist id="${listId}">${suggestions}</datalist>
+  </div>`;
 }
 
 function renderEditCategoryModal(modal) {
@@ -166,7 +171,7 @@ function renderEditCategoryModal(modal) {
         <button type="button" class="segment ${category.is_fixed ? "active-month" : ""}" data-action="pick-fixed" data-value="true">Oui</button>
         <button type="button" class="segment ${category.is_fixed ? "" : "active-month"}" data-action="pick-fixed" data-value="false">Non</button></div>
       <input type="hidden" name="is_fixed" value="${category.is_fixed ? "true" : "false"}" />
-      <label class="finance-field-label">Icône <span>(facultatif)</span></label><select class="field" name="icon">${renderIconOptions(category.icon || "")}</select>
+      <label class="finance-field-label">Icône de votre choix <span>(facultatif)</span></label>${renderIconField("edit-category-icon", category.icon || "")}
       <button type="submit" class="btn-primary">Enregistrer les modifications</button>
       <button type="button" class="finance-delete-category" data-action="open-delete-category" data-category-id="${category.id}">Supprimer cette catégorie</button>
     </form></div></div>`;

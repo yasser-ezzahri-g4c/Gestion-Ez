@@ -805,6 +805,9 @@ body.module-maladie.read-only-mode .btn-delete { display: none !important; }
 .finance-help { margin: -2px 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .finance-field-label { margin-bottom: -4px; color: var(--ink); font-size: 12px; font-weight: 700; }
 .finance-field-label span { color: var(--muted); font-weight: 400; }
+.finance-zero-hint { margin-top: -5px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.finance-icon-field { position: relative; }
+.finance-icon-field .field { min-height: 44px; font-size: 17px; }
 .finance-readonly-type { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 700; }
 .finance-readonly-type.depense { border-left: 3px solid var(--danger); }
 .finance-readonly-type.revenue { border-left: 3px solid var(--week); }

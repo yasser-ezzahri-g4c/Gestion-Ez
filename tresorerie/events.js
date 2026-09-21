@@ -70,10 +70,13 @@ async function onSubmit(event) {
     } else if (form.dataset.form === "add-finance-category") {
       const created = await addWalletCategory(form.name.value, form.direction.value, form.is_fixed.value === "true", form.icon.value);
       if (!created) return;
-      const saved = await addAmount(created.id, form.direction.value, form.amount.value, "Montant initial");
-      if (!saved) {
-        flash("La catégorie a été créée, mais le montant n’a pas pu être ajouté.", true);
-        await loadWalletData(); render(); return;
+      const initialAmount = Number(form.amount.value) || 0;
+      if (initialAmount > 0) {
+        const saved = await addAmount(created.id, form.direction.value, initialAmount, "Montant initial");
+        if (!saved) {
+          flash("La catégorie a été créée, mais le montant n’a pas pu être ajouté.", true);
+          await loadWalletData(); render(); return;
+        }
       }
       ui.modal = null; await loadWalletData(); render();
     } else if (form.dataset.form === "edit-finance-category") {
