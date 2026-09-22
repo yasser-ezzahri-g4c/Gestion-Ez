@@ -1,5 +1,5 @@
 import { getActiveModule } from "../shared/router.js";
-import { addManualExpense, addManualRevenue, addWalletCategory, deleteWalletCategory, ensureDefaultWalletCategories, loadWalletData, setOpeningBalance, updateWalletCategory } from "../shared/wallet.js";
+import { addManualExpense, addManualRevenue, addWalletCategory, deleteManualMovement, deleteWalletCategory, ensureDefaultWalletCategories, loadWalletData, setOpeningBalance, updateWalletCategory } from "../shared/wallet.js";
 import { activeMonthKey, flash } from "../shared/utils.js";
 import { ui } from "./data.js";
 import { render } from "./render.js";
@@ -22,8 +22,14 @@ async function onClick(event) {
   else if (action === "open-add-category") { ui.modal = { type: "add-category", direction: target.dataset.direction }; render(); }
   else if (action === "open-edit-category") { ui.modal = { type: "edit-category", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-delete-category") { ui.modal = { type: "delete-category", categoryId: target.dataset.categoryId }; render(); }
+  else if (action === "open-delete-transaction") { ui.modal = { type: "delete-transaction", movementId: target.dataset.movementId }; render(); }
   else if (action === "confirm-delete-category") {
     const deleted = await deleteWalletCategory(target.dataset.categoryId);
+    if (!deleted) return;
+    ui.modal = null; await loadWalletData(); render();
+  }
+  else if (action === "confirm-delete-transaction") {
+    const deleted = await deleteManualMovement(target.dataset.movementId);
     if (!deleted) return;
     ui.modal = null; await loadWalletData(); render();
   }
@@ -64,15 +70,20 @@ async function onSubmit(event) {
       await loadWalletData();
       render();
     } else if (form.dataset.form === "add-quick-amount") {
-      const saved = await addAmount(form.dataset.categoryId, form.dataset.direction, form.amount.value, "Ajout rapide");
+      const saved = await addAmount(form.dataset.categoryId, form.dataset.direction, form.amount.value, form.label.value);
       if (!saved) return;
       ui.modal = null; await loadWalletData(); render();
     } else if (form.dataset.form === "add-finance-category") {
+      const initialAmount = Number(form.amount.value) || 0;
+      const initialLabel = form.label.value.trim();
+      if (initialAmount > 0 && !initialLabel) {
+        flash("Le libellé est obligatoire lorsqu’un montant initial est saisi.", true);
+        return;
+      }
       const created = await addWalletCategory(form.name.value, form.direction.value, form.is_fixed.value === "true", form.icon.value);
       if (!created) return;
-      const initialAmount = Number(form.amount.value) || 0;
       if (initialAmount > 0) {
-        const saved = await addAmount(created.id, form.direction.value, initialAmount, "Montant initial");
+        const saved = await addAmount(created.id, form.direction.value, initialAmount, initialLabel);
         if (!saved) {
           flash("La catégorie a été créée, mais le montant n’a pas pu être ajouté.", true);
           await loadWalletData(); render(); return;

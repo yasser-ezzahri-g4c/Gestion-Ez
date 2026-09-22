@@ -829,9 +829,18 @@ body.module-maladie.read-only-mode .btn-delete { display: none !important; }
 .finance-history-copy strong, .finance-history-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .finance-history-copy strong { font-size: 13px; }
 .finance-history-copy span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+.finance-history-copy .finance-history-label { color: var(--ink); font-size: 11px; }
+.finance-history-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .finance-history-amount { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 .finance-history-amount.depense { color: var(--danger); }
 .finance-history-amount.revenue { color: var(--week); }
+.finance-history-delete { width: 28px; height: 26px; padding: 0; border: 1px solid #edc7c7; border-radius: 8px; background: #fff8f8; color: var(--danger); font-size: 12px; cursor: pointer; }
+.finance-transaction-confirm { margin-bottom: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); display: grid; gap: 4px; }
+.finance-transaction-confirm strong { font-size: 14px; }
+.finance-transaction-confirm span { color: var(--muted); font-size: 12px; }
+.finance-transaction-confirm b { margin-top: 4px; font-size: 16px; }
+.finance-transaction-confirm b.depense { color: var(--danger); }
+.finance-transaction-confirm b.revenue { color: var(--week); }
 .finance-history-empty { padding: 56px 24px; text-align: center; color: var(--muted); }
 .finance-history-empty > span { font-size: 36px; }
 .finance-history-empty h2 { margin: 12px 0 5px; color: var(--ink); font-size: 18px; }

@@ -105,7 +105,15 @@ function renderHistoryItem(movement) {
   const rawDate = movement.occurred_at || movement.created_at || `${movement.movement_date}T12:00:00`;
   const parsedDate = new Date(rawDate);
   const date = Number.isNaN(parsedDate.getTime()) ? movement.movement_date : parsedDate.toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  return `<div class="finance-history-item"><span class="finance-history-icon ${direction}">${esc(category?.icon || FALLBACK_ICONS[direction])}</span><div class="finance-history-copy"><strong>${esc(name)}</strong><span>${esc(date)}</span></div><strong class="finance-history-amount ${direction}">${amount < 0 ? "−" : "+"}${money(Math.abs(amount))} MAD</strong></div>`;
+  const label = movement.label || "Sans libellé";
+  return `<div class="finance-history-item">
+    <span class="finance-history-icon ${direction}">${esc(category?.icon || FALLBACK_ICONS[direction])}</span>
+    <div class="finance-history-copy"><strong>${esc(name)}</strong><span class="finance-history-label">${esc(label)}</span><span>${esc(date)}</span></div>
+    <div class="finance-history-right">
+      <strong class="finance-history-amount ${direction}">${amount < 0 ? "−" : "+"}${money(Math.abs(amount))} MAD</strong>
+      ${movement.source_type === "manual" ? `<button type="button" class="finance-history-delete" data-action="open-delete-transaction" data-movement-id="${movement.id}" aria-label="Annuler cette transaction" title="Annuler">🗑️</button>` : ""}
+    </div>
+  </div>`;
 }
 
 function renderModal() {
@@ -113,6 +121,7 @@ function renderModal() {
   if (ui.modal.type === "add-category") return renderAddCategoryModal(ui.modal);
   if (ui.modal.type === "edit-category") return renderEditCategoryModal(ui.modal);
   if (ui.modal.type === "delete-category") return renderDeleteCategoryModal(ui.modal);
+  if (ui.modal.type === "delete-transaction") return renderDeleteTransactionModal(ui.modal);
   return "";
 }
 
@@ -125,6 +134,7 @@ function renderQuickAmountModal(modal) {
     <p class="finance-help">${direction === "depense" ? "Ajouter une dépense" : "Ajouter un revenu"} à cette catégorie.</p>
     <form class="form-col" data-form="add-quick-amount" data-category-id="${category.id}" data-direction="${direction}">
       <label class="finance-field-label" for="quick-amount">Montant</label><div class="money-field"><input class="field" id="quick-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" autofocus required /><span>MAD</span></div>
+      <label class="finance-field-label" for="quick-label">Libellé</label><input class="field" id="quick-label" name="label" maxlength="120" placeholder="Ex. Facture septembre" required />
       <button type="submit" class="btn-primary">Ajouter</button>
     </form></div></div>`;
 }
@@ -136,6 +146,7 @@ function renderAddCategoryModal(modal) {
     <form class="form-col" data-form="add-finance-category">
       <label class="finance-field-label">Nom</label><input class="field" name="name" maxlength="60" placeholder="Ex. Abonnement" required />
       <label class="finance-field-label">Montant initial <span>(facultatif)</span></label><div class="money-field"><input class="field" name="amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" /><span>MAD</span></div>
+      <label class="finance-field-label">Libellé <span>(si un montant est saisi)</span></label><input class="field" name="label" maxlength="120" placeholder="Ex. Première opération" />
       <div class="finance-zero-hint">Laissez vide pour créer la card avec un montant de 0 MAD.</div>
       <label class="finance-field-label">Type</label><div class="segment-row">
         <button type="button" class="segment ${direction === "depense" ? "active-month" : ""}" data-action="pick-wallet-direction" data-value="depense">Dépense</button>
@@ -189,5 +200,25 @@ function renderDeleteCategoryModal(modal) {
     <div class="btn-row">
       ${hasTransactions ? "" : `<button type="button" class="btn-danger" data-action="confirm-delete-category" data-category-id="${category.id}">Supprimer définitivement</button>`}
       <button type="button" class="btn-secondary" data-action="close-modal">${hasTransactions ? "Fermer" : "Annuler"}</button>
+    </div></div></div>`;
+}
+
+function renderDeleteTransactionModal(modal) {
+  const movement = getMovements().find(item => item.id === modal.movementId);
+  if (!movement || movement.source_type !== "manual") return "";
+  const category = getWalletCategories().find(item => item.id === movement.category_id);
+  const amount = Number(movement.amount);
+  const direction = amount < 0 ? "dépense" : "revenu";
+  return `<div class="overlay" data-overlay-close="modal"><div class="sheet finance-sheet">
+    <div class="sheet-title"><span>Annuler cette transaction&nbsp;?</span><button class="close-btn" data-action="close-modal">✕</button></div>
+    <div class="finance-transaction-confirm">
+      <strong>${esc(category?.name || "Transaction")}</strong>
+      <span>${esc(movement.label || "Sans libellé")}</span>
+      <b class="${amount < 0 ? "depense" : "revenue"}">${amount < 0 ? "−" : "+"}${money(Math.abs(amount))} MAD</b>
+    </div>
+    <p class="finance-help">La ligne sera retirée de l’historique. Le solde et tous les totaux seront recalculés automatiquement.</p>
+    <div class="btn-row">
+      <button type="button" class="btn-danger" data-action="confirm-delete-transaction" data-movement-id="${movement.id}">Annuler ${direction}</button>
+      <button type="button" class="btn-secondary" data-action="close-modal">Conserver</button>
     </div></div></div>`;
 }

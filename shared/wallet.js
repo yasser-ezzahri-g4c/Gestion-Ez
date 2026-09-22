@@ -449,10 +449,6 @@ export async function updateManualMovement(id, amount, label) {
 export async function deleteManualMovement(id) {
   const mov = getMovements().find(m => m.id === id);
   if (!mov || mov.source_type !== "manual") return false;
-  if (!isManualMovementEditable(mov)) {
-    flash("Ce mouvement ne peut pas être supprimé (mois passé).", true);
-    return false;
-  }
   const { error } = await supabaseClient.from("wallet_movements").delete().eq("id", id);
   if (error) { flash(getErrorMessage(error, "Erreur suppression."), true); return false; }
   movementsCache = movementsCache.filter(m => m.id !== id);
