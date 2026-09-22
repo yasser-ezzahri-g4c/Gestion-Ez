@@ -106,12 +106,13 @@ function renderHistoryItem(movement) {
   const parsedDate = new Date(rawDate);
   const date = Number.isNaN(parsedDate.getTime()) ? movement.movement_date : parsedDate.toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const label = movement.label || "Sans libellé";
-  return `<div class="finance-history-item">
+  const isCancelled = movement.source_type === "manual_cancelled";
+  return `<div class="finance-history-item ${isCancelled ? "is-cancelled" : ""}">
     <span class="finance-history-icon ${direction}">${esc(category?.icon || FALLBACK_ICONS[direction])}</span>
-    <div class="finance-history-copy"><strong>${esc(name)}</strong><span class="finance-history-label">${esc(label)}</span><span>${esc(date)}</span></div>
+    <div class="finance-history-copy"><strong>${esc(name)}</strong>${isCancelled ? `<span class="finance-cancelled-badge">Annulé</span>` : ""}<span class="finance-history-label">${esc(label)}</span><span>${esc(date)}</span></div>
     <div class="finance-history-right">
       <strong class="finance-history-amount ${direction}">${amount < 0 ? "−" : "+"}${money(Math.abs(amount))} MAD</strong>
-      ${movement.source_type === "manual" ? `<button type="button" class="finance-history-delete" data-action="open-delete-transaction" data-movement-id="${movement.id}" aria-label="Annuler cette transaction" title="Annuler">🗑️</button>` : ""}
+      ${movement.source_type === "manual" ? `<button type="button" class="finance-history-cancel" data-action="open-cancel-transaction" data-movement-id="${movement.id}" aria-label="Annuler cette transaction" title="Annuler">↩</button>` : ""}
     </div>
   </div>`;
 }
@@ -121,7 +122,7 @@ function renderModal() {
   if (ui.modal.type === "add-category") return renderAddCategoryModal(ui.modal);
   if (ui.modal.type === "edit-category") return renderEditCategoryModal(ui.modal);
   if (ui.modal.type === "delete-category") return renderDeleteCategoryModal(ui.modal);
-  if (ui.modal.type === "delete-transaction") return renderDeleteTransactionModal(ui.modal);
+  if (ui.modal.type === "cancel-transaction") return renderCancelTransactionModal(ui.modal);
   return "";
 }
 
@@ -203,7 +204,7 @@ function renderDeleteCategoryModal(modal) {
     </div></div></div>`;
 }
 
-function renderDeleteTransactionModal(modal) {
+function renderCancelTransactionModal(modal) {
   const movement = getMovements().find(item => item.id === modal.movementId);
   if (!movement || movement.source_type !== "manual") return "";
   const category = getWalletCategories().find(item => item.id === movement.category_id);
@@ -216,9 +217,9 @@ function renderDeleteTransactionModal(modal) {
       <span>${esc(movement.label || "Sans libellé")}</span>
       <b class="${amount < 0 ? "depense" : "revenue"}">${amount < 0 ? "−" : "+"}${money(Math.abs(amount))} MAD</b>
     </div>
-    <p class="finance-help">La ligne sera retirée de l’historique. Le solde et tous les totaux seront recalculés automatiquement.</p>
+    <p class="finance-help">La transaction restera visible dans l’historique avec le statut <strong>Annulé</strong>, mais elle sera retirée du calcul du solde et de tous les totaux.</p>
     <div class="btn-row">
-      <button type="button" class="btn-danger" data-action="confirm-delete-transaction" data-movement-id="${movement.id}">Annuler ${direction}</button>
+      <button type="button" class="btn-danger" data-action="confirm-cancel-transaction" data-movement-id="${movement.id}">Confirmer l’annulation</button>
       <button type="button" class="btn-secondary" data-action="close-modal">Conserver</button>
     </div></div></div>`;
 }

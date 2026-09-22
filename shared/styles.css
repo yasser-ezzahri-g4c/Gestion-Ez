@@ -830,11 +830,17 @@ body.module-maladie.read-only-mode .btn-delete { display: none !important; }
 .finance-history-copy strong { font-size: 13px; }
 .finance-history-copy span { margin-top: 3px; color: var(--muted); font-size: 10px; }
 .finance-history-copy .finance-history-label { color: var(--ink); font-size: 11px; }
+.finance-cancelled-badge { display: inline-block !important; width: fit-content; margin-top: 4px !important; padding: 2px 6px; border-radius: 999px; background: #edecea; color: var(--muted) !important; font-size: 9px !important; font-weight: 800; text-transform: uppercase; }
 .finance-history-right { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .finance-history-amount { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; }
 .finance-history-amount.depense { color: var(--danger); }
 .finance-history-amount.revenue { color: var(--week); }
-.finance-history-delete { width: 28px; height: 26px; padding: 0; border: 1px solid #edc7c7; border-radius: 8px; background: #fff8f8; color: var(--danger); font-size: 12px; cursor: pointer; }
+.finance-history-cancel { width: 28px; height: 26px; padding: 0; border: 1px solid #edc7c7; border-radius: 8px; background: #fff8f8; color: var(--danger); font-size: 16px; font-weight: 800; cursor: pointer; }
+.finance-history-item.is-cancelled { background: #fafafa; }
+.finance-history-item.is-cancelled .finance-history-icon,
+.finance-history-item.is-cancelled .finance-history-label,
+.finance-history-item.is-cancelled .finance-history-amount { opacity: .5; }
+.finance-history-item.is-cancelled .finance-history-amount { text-decoration: line-through; }
 .finance-transaction-confirm { margin-bottom: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); display: grid; gap: 4px; }
 .finance-transaction-confirm strong { font-size: 14px; }
 .finance-transaction-confirm span { color: var(--muted); font-size: 12px; }

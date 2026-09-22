@@ -20,6 +20,7 @@ export const SOURCE_LABELS = {
   elec_pay: "Paiement électricité",
   water_pay: "Paiement eau",
   manual: "Charge manuelle",
+  manual_cancelled: "Transaction annulée",
 };
 
 export const SYSTEM_EXPENSE_TYPES = [
@@ -90,7 +91,9 @@ function movementByRef(refKey) {
 }
 
 function sumMovements(monthKey) {
-  return movementsForMonth(monthKey).reduce((s, m) => s + Number(m.amount), 0);
+  return movementsForMonth(monthKey)
+    .filter(m => m.source_type !== "manual_cancelled")
+    .reduce((s, m) => s + Number(m.amount), 0);
 }
 
 /** Solde de clôture d'un mois (report vers le mois suivant). */
@@ -446,14 +449,24 @@ export async function updateManualMovement(id, amount, label) {
   return true;
 }
 
-export async function deleteManualMovement(id) {
+export async function cancelManualMovement(id) {
   const mov = getMovements().find(m => m.id === id);
   if (!mov || mov.source_type !== "manual") return false;
-  const { error } = await supabaseClient.from("wallet_movements").delete().eq("id", id);
-  if (error) { flash(getErrorMessage(error, "Erreur suppression."), true); return false; }
-  movementsCache = movementsCache.filter(m => m.id !== id);
-  flash("Mouvement supprimé.");
+  const { data, error } = await supabaseClient.from("wallet_movements")
+    .update({ source_type: "manual_cancelled" })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) { flash(getErrorMessage(error, "Erreur lors de l’annulation."), true); return false; }
+  const idx = movementsCache.findIndex(m => m.id === id);
+  if (idx >= 0) movementsCache[idx] = data;
+  flash("Transaction annulée. Les totaux ont été recalculés.");
   return true;
+}
+
+// Compatibilité avec les anciens écrans : une demande de suppression annule désormais le mouvement.
+export async function deleteManualMovement(id) {
+  return cancelManualMovement(id);
 }
 
 export async function addWalletCategory(name, direction, isFixed = false, icon = null) {
@@ -564,7 +577,9 @@ export function totalForCategory(categoryId) {
 export function getFinancialOverview() {
   const openingMovement = getMovements().find(m => m.source_type === "opening");
   const initialBalance = openingMovement ? Number(openingMovement.amount) : 0;
-  const transactions = getMovements().filter(m => m.source_type !== "opening");
+  const transactions = getMovements().filter(
+    m => m.source_type !== "opening" && m.source_type !== "manual_cancelled",
+  );
   const totalRevenue = transactions
     .filter(m => Number(m.amount) > 0)
     .reduce((sum, movement) => sum + Number(movement.amount), 0);
