@@ -127,17 +127,19 @@ function renderBreakdown(direction, movements) {
   const rows = breakdownRows(direction, movements);
   const total = rows.reduce((sum, row) => sum + row.total, 0);
   const title = direction === "depense" ? "Récapitulatif des dépenses" : "Récapitulatif des revenus";
-  if (!rows.length) return `<div class="finance-breakdown"><div class="finance-breakdown-head"><strong>${title}</strong><span>0,00 MAD</span></div><div class="finance-breakdown-empty">Aucune donnée pour cette sélection.</div></div>`;
-  return `<div class="finance-breakdown ${direction}">
-    <div class="finance-breakdown-head"><strong>${title}</strong><span>${money(total)} MAD · ${rows.reduce((sum, row) => sum + row.count, 0)} opération${rows.reduce((sum, row) => sum + row.count, 0) > 1 ? "s" : ""}</span></div>
-    ${rows.map(row => {
+  const count = rows.reduce((sum, row) => sum + row.count, 0);
+  const recapHead = `<summary class="finance-breakdown-head"><strong>${title}</strong><span>${money(total)} MAD${count ? ` · ${count} opération${count > 1 ? "s" : ""}` : ""}</span><b class="finance-collapse-icon" aria-hidden="true">⌄</b></summary>`;
+  if (!rows.length) return `<details class="finance-breakdown ${direction}" open>${recapHead}<div class="finance-breakdown-body"><div class="finance-breakdown-empty">Aucune donnée pour cette sélection.</div></div></details>`;
+  return `<details class="finance-breakdown ${direction}" open>
+    ${recapHead}
+    <div class="finance-breakdown-body">${rows.map(row => {
       const percentage = total > 0 ? (row.total / total) * 100 : 0;
       return `<div class="finance-breakdown-row">
         <span class="finance-breakdown-icon">${esc(row.icon)}</span>
         <div class="finance-breakdown-main"><div><strong>${esc(row.name)}</strong><span>${money(row.total)} MAD · ${Math.round(percentage)}%</span></div><div class="finance-breakdown-track"><i style="width:${percentage}%"></i></div></div>
       </div>`;
-    }).join("")}
-  </div>`;
+    }).join("")}</div>
+  </details>`;
 }
 
 function eventStatus(event) {
