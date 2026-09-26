@@ -37,6 +37,10 @@ async function onClick(event) {
     ui.modal = null; await loadWalletData(); render();
   }
   else if (action === "close-modal") { ui.modal = null; render(); }
+  else if (action === "pick-existing-label") {
+    const input = target.closest("form")?.querySelector("[name='label']");
+    if (input) { input.value = target.dataset.label || ""; input.focus(); }
+  }
   else if (action === "pick-wallet-direction") setSegmentValue(target, "direction", "active-month", "active-week");
   else if (action === "pick-fixed") setSegmentValue(target, "is_fixed", "active-month", "active-month");
 }

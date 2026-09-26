@@ -1,6 +1,6 @@
 import { ui } from "./data.js";
 import {
-  getFinancialHistory, getFinancialOverview, getUserWalletCategories,
+  getCategoryMovementLabels, getFinancialHistory, getFinancialOverview, getUserWalletCategories,
   getMovements, getWalletCategories, hasOpeningBalance, SOURCE_LABELS, totalForCategory,
 } from "../shared/wallet.js";
 import { esc, money } from "../shared/utils.js";
@@ -228,12 +228,17 @@ function renderQuickAmountModal(modal) {
   if (!category) return "";
   const direction = category.direction || "depense";
   const activeEvent = getActiveFinanceEvent();
+  const labels = getCategoryMovementLabels(category.id);
+  const labelListId = `quick-label-options-${category.id}`;
   return `<div class="overlay" data-overlay-close="modal"><div class="sheet finance-sheet">
     <div class="sheet-title"><span>${esc(category.icon || FALLBACK_ICONS[direction])} ${esc(category.name)}</span><button class="close-btn" data-action="close-modal">✕</button></div>
     <p class="finance-help">${direction === "depense" ? "Ajouter une dépense" : "Ajouter un revenu"} à cette catégorie.</p>
     <form class="form-col" data-form="add-quick-amount" data-category-id="${category.id}" data-direction="${direction}">
       <label class="finance-field-label" for="quick-amount">Montant</label><div class="money-field"><input class="field" id="quick-amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" autofocus required /><span>MAD</span></div>
-      <label class="finance-field-label" for="quick-label">Libellé <span>(facultatif)</span></label><input class="field" id="quick-label" name="label" maxlength="120" placeholder="Ex. Facture septembre" />
+      <label class="finance-field-label" for="quick-label">Libellé <span>(facultatif)</span></label>
+      <input class="field" id="quick-label" name="label" list="${labelListId}" maxlength="120" placeholder="Choisir ou saisir un libellé" autocomplete="off" />
+      <datalist id="${labelListId}">${labels.map(label => `<option value="${esc(label)}"></option>`).join("")}</datalist>
+      ${labels.length ? `<div class="finance-label-suggestions" aria-label="Libellés déjà utilisés">${labels.slice(0, 8).map(label => `<button type="button" class="finance-label-chip" data-action="pick-existing-label" data-label="${esc(label)}">${esc(label)}</button>`).join("")}</div><div class="finance-label-help">Choisissez un libellé existant ou saisissez-en un nouveau.</div>` : `<div class="finance-label-help">Ce nouveau libellé sera proposé lors des prochains ajouts dans cette card.</div>`}
       ${activeEvent ? `<div class="finance-event-context">${esc(activeEvent.icon || "🗓️")} Sera ajouté à l’événement <strong>${esc(activeEvent.name)}</strong></div>` : ""}
       <button type="submit" class="btn-primary">Ajouter</button>
     </form></div></div>`;

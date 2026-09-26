@@ -82,6 +82,36 @@ function normalizeWalletCategoryName(name) {
   return String(name || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("fr");
 }
 
+function cleanMovementLabel(label) {
+  return String(label || "").normalize("NFKC").trim().replace(/\s+/g, " ");
+}
+
+function normalizeMovementLabel(label) {
+  return cleanMovementLabel(label).toLocaleLowerCase("fr");
+}
+
+export function getCategoryMovementLabels(categoryId) {
+  const labels = [];
+  const seen = new Set();
+  const emptyLabelKey = normalizeMovementLabel("Sans libellé");
+  getMovements().slice().reverse().forEach(movement => {
+    if (movement.category_id !== categoryId || !["manual", "manual_cancelled"].includes(movement.source_type)) return;
+    const label = cleanMovementLabel(movement.label);
+    const key = normalizeMovementLabel(label);
+    if (!key || key === emptyLabelKey || seen.has(key)) return;
+    seen.add(key);
+    labels.push(label);
+  });
+  return labels;
+}
+
+function canonicalMovementLabel(categoryId, label) {
+  const cleaned = cleanMovementLabel(label);
+  if (!cleaned) return "Sans libellé";
+  const key = normalizeMovementLabel(cleaned);
+  return getCategoryMovementLabels(categoryId).find(existing => normalizeMovementLabel(existing) === key) || cleaned;
+}
+
 function movementsForMonth(monthKey) {
   return getMovements().filter(m => m.month_key === monthKey);
 }
@@ -363,7 +393,7 @@ export async function addManualExpense(monthKey, categoryId, amount, label) {
     flash("Cette catégorie n'est pas une dépense.", true);
     return false;
   }
-  const lbl = label?.trim() || "Sans libellé";
+  const lbl = canonicalMovementLabel(categoryId, label);
   const { data, error } = await supabaseClient.from("wallet_movements")
     .insert({
       month_key: monthKey,
@@ -391,7 +421,7 @@ export async function addManualRevenue(monthKey, categoryId, amount, label) {
     flash("Cette catégorie n'est pas un revenu.", true);
     return false;
   }
-  const lbl = label?.trim() || "Sans libellé";
+  const lbl = canonicalMovementLabel(categoryId, label);
   const { data, error } = await supabaseClient.from("wallet_movements")
     .insert({
       month_key: monthKey,
@@ -429,7 +459,7 @@ export async function updateManualMovement(id, amount, label) {
       if (msg) { flash(msg, true); return false; }
     }
   }
-  const lbl = label?.trim() || "Sans libellé";
+  const lbl = canonicalMovementLabel(mov.category_id, label);
   const nextAmount = direction === "depense" ? -amt : amt;
   const { data, error } = await supabaseClient.from("wallet_movements")
     .update({
