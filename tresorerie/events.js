@@ -3,6 +3,7 @@ import { addManualExpense, addManualRevenue, addWalletCategory, cancelManualMove
 import { activeMonthKey, flash } from "../shared/utils.js";
 import { ui } from "./data.js";
 import { render } from "./render.js";
+import { createFinanceEvent, loadFinanceEvents } from "./finance-events.js";
 
 export function setupEvents() {
   document.addEventListener("click", onClick);
@@ -23,6 +24,8 @@ async function onClick(event) {
   else if (action === "open-edit-category") { ui.modal = { type: "edit-category", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-delete-category") { ui.modal = { type: "delete-category", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-cancel-transaction") { ui.modal = { type: "cancel-transaction", movementId: target.dataset.movementId }; render(); }
+  else if (action === "open-add-event") { ui.modal = { type: "add-event" }; render(); }
+  else if (action === "open-event-details") { ui.modal = { type: "event-details", eventId: target.dataset.eventId }; render(); }
   else if (action === "confirm-delete-category") {
     const deleted = await deleteWalletCategory(target.dataset.categoryId);
     if (!deleted) return;
@@ -76,10 +79,6 @@ async function onSubmit(event) {
     } else if (form.dataset.form === "add-finance-category") {
       const initialAmount = Number(form.amount.value) || 0;
       const initialLabel = form.label.value.trim();
-      if (initialAmount > 0 && !initialLabel) {
-        flash("Le libellé est obligatoire lorsqu’un montant initial est saisi.", true);
-        return;
-      }
       const created = await addWalletCategory(form.name.value, form.direction.value, form.is_fixed.value === "true", form.icon.value);
       if (!created) return;
       if (initialAmount > 0) {
@@ -100,6 +99,17 @@ async function onSubmit(event) {
       );
       if (!updated) return;
       ui.modal = null; await loadWalletData(); render();
+    } else if (form.dataset.form === "add-finance-event") {
+      const created = await createFinanceEvent({
+        name: form.name.value,
+        icon: form.icon.value,
+        startsAt: form.starts_at.value,
+        endsAt: form.ends_at.value,
+      });
+      if (!created) return;
+      ui.modal = null;
+      await Promise.all([loadFinanceEvents(), loadWalletData()]);
+      render();
     }
   } finally {
     if (submit) submit.disabled = false;

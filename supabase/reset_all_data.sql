@@ -23,4 +23,11 @@ truncate table
   public.wallet_categories
 restart identity cascade;
 
+do $$
+begin
+  if to_regclass('public.finance_events') is not null then
+    execute 'truncate table public.finance_events restart identity cascade';
+  end if;
+end $$;
+
 commit;

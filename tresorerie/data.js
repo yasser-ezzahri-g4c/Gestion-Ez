@@ -11,6 +11,7 @@ import {
 } from "../shared/wallet.js";
 import { supabaseClient } from "../shared/supabase.js";
 import { TRESORERIE_START_MONTH } from "../shared/utils.js";
+import { loadFinanceEvents, resetFinanceEvents } from "./finance-events.js";
 
 export let state = { loaded: false };
 
@@ -79,13 +80,14 @@ export const ui = {
 export function resetState() {
   state = { loaded: false };
   ui.saisiePinned = {};
+  resetFinanceEvents();
   maladieLookup.actions.clear();
   maladieLookup.categories.clear();
   maladieLookup.dossiers.clear();
 }
 
 export async function fetchStateFromSupabase() {
-  await Promise.all([loadWalletData(), loadMaladieLookup()]);
+  await Promise.all([loadWalletData(), loadMaladieLookup(), loadFinanceEvents()]);
   state.loaded = true;
 }
 

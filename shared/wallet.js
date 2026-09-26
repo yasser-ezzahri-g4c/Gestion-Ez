@@ -363,8 +363,7 @@ export async function addManualExpense(monthKey, categoryId, amount, label) {
     flash("Cette catégorie n'est pas une dépense.", true);
     return false;
   }
-  const lbl = label?.trim();
-  if (!lbl) { flash("Le libellé est obligatoire.", true); return false; }
+  const lbl = label?.trim() || "Sans libellé";
   const { data, error } = await supabaseClient.from("wallet_movements")
     .insert({
       month_key: monthKey,
@@ -392,8 +391,7 @@ export async function addManualRevenue(monthKey, categoryId, amount, label) {
     flash("Cette catégorie n'est pas un revenu.", true);
     return false;
   }
-  const lbl = label?.trim();
-  if (!lbl) { flash("Le libellé est obligatoire.", true); return false; }
+  const lbl = label?.trim() || "Sans libellé";
   const { data, error } = await supabaseClient.from("wallet_movements")
     .insert({
       month_key: monthKey,
@@ -431,8 +429,7 @@ export async function updateManualMovement(id, amount, label) {
       if (msg) { flash(msg, true); return false; }
     }
   }
-  const lbl = label?.trim();
-  if (!lbl) { flash("Le libellé est obligatoire.", true); return false; }
+  const lbl = label?.trim() || "Sans libellé";
   const nextAmount = direction === "depense" ? -amt : amt;
   const { data, error } = await supabaseClient.from("wallet_movements")
     .update({
