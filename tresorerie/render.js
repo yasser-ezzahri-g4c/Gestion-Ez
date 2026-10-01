@@ -1,9 +1,12 @@
 import { ui } from "./data.js";
 import {
-  getCategoryMovementLabels, getFinancialHistory, getFinancialOverview, getUserWalletCategories,
+  getCategoryMovementLabels, getCategoryMovements, getFinancialHistory, getFinancialOverview, getUserWalletCategories,
   getMovements, getWalletCategories, hasOpeningBalance, SOURCE_LABELS, totalForCategory,
 } from "../shared/wallet.js";
-import { esc, money } from "../shared/utils.js";
+import {
+  currentCalendarMonthKey, esc, monthChipLabel, monthLabel, monthsRangeFrom, money,
+  TRESORERIE_START_MONTH,
+} from "../shared/utils.js";
 import {
   areFinanceEventsAvailable, getActiveFinanceEvent, getFinanceEvents,
 } from "./finance-events.js";
@@ -13,8 +16,9 @@ const ICONS = ["", "💧", "⚡", "📶", "🏠", "🛒", "🚌", "💼", "🎁"
 
 export function render() {
   const controls = document.getElementById("maison-controls");
-  if (controls) controls.style.display = "none";
+  if (controls) controls.style.display = ui.subTab === "events" ? "none" : "flex";
   document.getElementById("header-title").textContent = "Mes finances";
+  document.getElementById("month-btn-label").textContent = monthChipLabel(ui.viewedMonthKey);
   document.getElementById("subtabs").innerHTML = `
     <button class="subtab ${ui.subTab === "dashboard" ? "active" : ""}" data-action="set-subtab" data-tab="dashboard">Vue globale</button>
     <button class="subtab ${ui.subTab === "events" ? "active" : ""}" data-action="set-subtab" data-tab="events">Événements</button>
@@ -24,7 +28,7 @@ export function render() {
     : ui.subTab === "events" ? renderEventsTab() : renderDashboard();
   document.getElementById("modal-root").innerHTML = !hasOpeningBalance()
     ? renderInitialBalanceModal()
-    : (ui.modal ? renderModal() : "");
+    : ui.monthPanelOpen ? renderMonthPanel() : (ui.modal ? renderModal() : "");
 }
 
 function renderInitialBalanceModal() {
@@ -44,26 +48,37 @@ function renderInitialBalanceModal() {
 }
 
 function renderDashboard() {
-  const summary = getFinancialOverview();
+  const monthKey = ui.viewedMonthKey;
+  const summary = getFinancialOverview(monthKey);
+  const isCurrent = monthKey === currentCalendarMonthKey();
   return `
     <div class="finance-dashboard">
+      ${renderPeriodBanner(monthKey)}
       <section class="balance-hero">
-        <div class="balance-hero-label">Solde actuel</div>
+        <div class="balance-hero-label">${isCurrent ? "Solde actuel" : "Solde à la fin du mois"}</div>
         <div class="balance-hero-value">${money(summary.currentBalance)} <small>MAD</small></div>
         <div class="balance-hero-grid">
-          <div><span>Solde initial</span><strong>${money(summary.initialBalance)} MAD</strong></div>
-          <div class="finance-positive"><span>Revenus cumulés</span><strong>+${money(summary.totalRevenue)} MAD</strong></div>
-          <div class="finance-negative"><span>Dépenses cumulées</span><strong>−${money(summary.totalExpense)} MAD</strong></div>
+          <div><span>Solde début du mois</span><strong>${money(summary.initialBalance)} MAD</strong></div>
+          <div class="finance-positive"><span>Revenus du mois</span><strong>+${money(summary.totalRevenue)} MAD</strong></div>
+          <div class="finance-negative"><span>Dépenses du mois</span><strong>−${money(summary.totalExpense)} MAD</strong></div>
         </div>
       </section>
-      ${renderCategorySection("Dépenses", "depense", sortedCategories("depense"), summary.totalExpense)}
-      ${renderCategorySection("Revenus", "revenue", sortedCategories("revenue"), summary.totalRevenue)}
+      ${renderCategorySection("Dépenses", "depense", sortedCategories("depense"), summary.totalExpense, isCurrent)}
+      ${renderCategorySection("Revenus", "revenue", sortedCategories("revenue"), summary.totalRevenue, isCurrent)}
       <section class="finance-analysis-section">
-        <div class="finance-section-head"><div><h2>Analyse globale</h2><span>Répartition calculée depuis l’historique</span></div></div>
-        ${renderBreakdown("depense", getFinancialHistory())}
-        ${renderBreakdown("revenue", getFinancialHistory())}
+        <div class="finance-section-head"><div><h2>Analyse du mois</h2><span>Répartition pour ${monthLabel(monthKey)}</span></div></div>
+        ${renderBreakdown("depense", getFinancialHistory(monthKey))}
+        ${renderBreakdown("revenue", getFinancialHistory(monthKey))}
       </section>
     </div>`;
+}
+
+function renderPeriodBanner(monthKey) {
+  const isCurrent = monthKey === currentCalendarMonthKey();
+  return `<button type="button" class="finance-period-banner ${isCurrent ? "is-current" : "is-history"}" data-action="open-month-panel">
+    <span>📅</span><div><small>Période affichée</small><strong>${monthLabel(monthKey)}</strong></div>
+    <em>${isCurrent ? "Mois courant" : "Historique"}</em><b>›</b>
+  </button>`;
 }
 
 function sortedCategories(direction) {
@@ -72,33 +87,38 @@ function sortedCategories(direction) {
       || a.name.localeCompare(b.name, "fr", { sensitivity: "base" }));
 }
 
-function renderCategorySection(title, direction, categories, total) {
+function renderCategorySection(title, direction, categories, total, canEdit) {
   return `
     <section class="finance-section">
       <div class="finance-section-head">
         <div><h2>${title}</h2><span>${money(total)} MAD au total</span></div>
-        <button type="button" class="finance-add-btn" data-action="open-add-category" data-direction="${direction}">＋ Ajouter</button>
+        ${canEdit ? `<button type="button" class="finance-add-btn" data-action="open-add-category" data-direction="${direction}">＋ Ajouter</button>` : `<span class="finance-history-mode">Consultation</span>`}
       </div>
-      ${categories.length ? `<div class="finance-card-grid">${categories.map(renderCategoryCard).join("")}</div>` : `
+      ${categories.length ? `<div class="finance-card-grid">${categories.map(category => renderCategoryCard(category, canEdit)).join("")}</div>` : canEdit ? `
         <button type="button" class="finance-empty" data-action="open-add-category" data-direction="${direction}">
           <span>${direction === "depense" ? "💳" : "💰"}</span><strong>Aucune catégorie</strong>
           <small>Touchez ici pour en ajouter une</small>
-        </button>`}
+        </button>` : `<div class="finance-empty"><span>${direction === "depense" ? "💳" : "💰"}</span><strong>Aucune donnée</strong><small>Aucune catégorie disponible pour cette période</small></div>`}
     </section>`;
 }
 
-function renderCategoryCard(category) {
+function renderCategoryCard(category, canEdit) {
   const direction = category.direction || "depense";
+  const movements = getCategoryMovements(category.id, ui.viewedMonthKey);
+  const activeCount = movements.filter(movement => movement.source_type !== "manual_cancelled").length;
   return `
     <div class="finance-category-wrap">
-      <button type="button" class="finance-category-card ${direction}" data-action="open-quick-amount" data-category-id="${category.id}">
+      <button type="button" class="finance-category-card ${direction} ${canEdit ? "" : "is-history"}" data-action="${canEdit ? "open-quick-amount" : "open-category-details"}" data-category-id="${category.id}">
         <span class="finance-category-icon">${esc(category.icon || FALLBACK_ICONS[direction])}</span>
         ${category.is_fixed ? `<span class="finance-fixed-badge">Fixe</span>` : ""}
         <span class="finance-category-name">${esc(category.name)}</span>
-        <strong>${money(totalForCategory(category.id))} MAD</strong>
+        <strong>${money(totalForCategory(category.id, ui.viewedMonthKey))} MAD</strong>
         <small>${direction === "depense" ? "dépensé" : "reçu"}</small>
       </button>
-      <button type="button" class="finance-category-manage" data-action="open-edit-category" data-category-id="${category.id}" aria-label="Modifier ${esc(category.name)}" title="Modifier">•••</button>
+      ${canEdit ? `<button type="button" class="finance-category-manage" data-action="open-edit-category" data-category-id="${category.id}" aria-label="Modifier ${esc(category.name)}" title="Modifier">•••</button>` : ""}
+      <button type="button" class="finance-category-transactions" data-action="open-category-details" data-category-id="${category.id}">
+        <span>${activeCount ? `${activeCount} montant${activeCount > 1 ? "s" : ""} saisi${activeCount > 1 ? "s" : ""}` : "Aucun montant saisi"}</span><strong>Voir le détail ›</strong>
+      </button>
     </div>`;
 }
 
@@ -187,9 +207,25 @@ function renderEventCard(event) {
 }
 
 function renderHistory() {
-  const history = getFinancialHistory();
-  if (!history.length) return `<div class="finance-history-empty"><span>🧾</span><h2>Aucune transaction</h2><p>Les montants ajoutés depuis vos cards apparaîtront ici.</p></div>`;
-  return `<div class="finance-history"><div class="finance-history-title"><h2>Dernières transactions</h2><span>${history.length} mouvement${history.length > 1 ? "s" : ""}</span></div><div class="finance-history-list">${history.map(renderHistoryItem).join("")}</div></div>`;
+  const monthKey = ui.viewedMonthKey;
+  const history = getFinancialHistory(monthKey);
+  if (!history.length) return `<div class="finance-history">${renderPeriodBanner(monthKey)}<div class="finance-history-empty"><span>🧾</span><h2>Aucune transaction</h2><p>Aucun mouvement enregistré pour ${monthLabel(monthKey)}.</p></div></div>`;
+  return `<div class="finance-history">${renderPeriodBanner(monthKey)}<div class="finance-history-title"><h2>Transactions · ${monthLabel(monthKey)}</h2><span>${history.length} mouvement${history.length > 1 ? "s" : ""}</span></div><div class="finance-history-list">${history.map(renderHistoryItem).join("")}</div></div>`;
+}
+
+function renderMonthPanel() {
+  const current = currentCalendarMonthKey();
+  const months = monthsRangeFrom(TRESORERIE_START_MONTH).filter(monthKey => monthKey <= current);
+  return `<div class="overlay" data-overlay-close="month"><div class="sheet">
+    <div class="sheet-title">Choisir une période <button class="close-btn" data-action="close-month-panel">✕</button></div>
+    <p class="finance-help">Sélectionnez un mois pour consulter ses dépenses, revenus et transactions.</p>
+    <div class="chip-row">${months.slice().reverse().map(monthKey => {
+      const isCurrent = monthKey === current;
+      const isSelected = monthKey === ui.viewedMonthKey;
+      const cls = isSelected ? "chip is-active" : "chip";
+      return `<button class="${cls}" data-action="select-month" data-month="${monthKey}">${monthChipLabel(monthKey)}${isCurrent ? " · actuel" : ""}</button>`;
+    }).join("")}</div>
+  </div></div>`;
 }
 
 function renderHistoryItem(movement) {
@@ -214,6 +250,7 @@ function renderHistoryItem(movement) {
 
 function renderModal() {
   if (ui.modal.type === "quick-amount") return renderQuickAmountModal(ui.modal);
+  if (ui.modal.type === "category-details") return renderCategoryDetailsModal(ui.modal);
   if (ui.modal.type === "add-category") return renderAddCategoryModal(ui.modal);
   if (ui.modal.type === "edit-category") return renderEditCategoryModal(ui.modal);
   if (ui.modal.type === "delete-category") return renderDeleteCategoryModal(ui.modal);
@@ -221,6 +258,25 @@ function renderModal() {
   if (ui.modal.type === "add-event") return renderAddEventModal();
   if (ui.modal.type === "event-details") return renderEventDetailsModal(ui.modal);
   return "";
+}
+
+function renderCategoryDetailsModal(modal) {
+  const category = getWalletCategories().find(item => item.id === modal.categoryId);
+  if (!category) return "";
+  const direction = category.direction || "depense";
+  const movements = getCategoryMovements(category.id, ui.viewedMonthKey);
+  const activeMovements = movements.filter(movement => movement.source_type !== "manual_cancelled");
+  const total = activeMovements.reduce((sum, movement) => sum + Math.abs(Number(movement.amount)), 0);
+  return `<div class="overlay" data-overlay-close="modal"><div class="sheet finance-sheet finance-category-detail-sheet">
+    <div class="sheet-title"><span>${esc(category.icon || FALLBACK_ICONS[direction])} ${esc(category.name)}</span><button class="close-btn" data-action="close-modal">✕</button></div>
+    <div class="finance-category-detail-summary ${direction}">
+      <div><span>Total · ${monthLabel(ui.viewedMonthKey)}</span><strong>${money(total)} MAD</strong></div>
+      <em>${activeMovements.length} saisie${activeMovements.length > 1 ? "s" : ""}</em>
+    </div>
+    ${movements.length
+    ? `<div class="finance-history-list">${movements.map(renderHistoryItem).join("")}</div>`
+    : `<div class="finance-category-detail-empty"><span>🧾</span><strong>Aucun montant saisi</strong><p>Cette catégorie ne contient aucune transaction pour ${monthLabel(ui.viewedMonthKey)}.</p></div>`}
+  </div></div>`;
 }
 
 function renderQuickAmountModal(modal) {

@@ -585,8 +585,7 @@ export async function ensureDefaultWalletCategories() {
   return true;
 }
 
-export function totalForCategory(categoryId) {
-  const category = getWalletCategories().find(item => item.id === categoryId);
+function linkedSystemTypesForCategory(category) {
   const systemTypesByName = {
     eau: ["water_pay"],
     "électricité": ["elec_pay"],
@@ -594,19 +593,44 @@ export function totalForCategory(categoryId) {
     course: ["budget_month", "budget_week"],
     salaire: ["salary"],
   };
-  const linkedSystemTypes = systemTypesByName[normalizeWalletCategoryName(category?.name)] || [];
+  return systemTypesByName[normalizeWalletCategoryName(category?.name)] || [];
+}
+
+export function getCategoryMovements(categoryId, monthKey = null) {
+  const category = getWalletCategories().find(item => item.id === categoryId);
+  const linkedSystemTypes = linkedSystemTypesForCategory(category);
   return getMovements()
-    .filter(m => (m.category_id === categoryId && m.source_type === "manual")
+    .filter(m => !monthKey || m.month_key === monthKey)
+    .filter(m => (m.category_id === categoryId && ["manual", "manual_cancelled"].includes(m.source_type))
       || linkedSystemTypes.includes(m.source_type))
+    .slice()
+    .sort((a, b) => {
+      const dateA = a.occurred_at || a.created_at || a.movement_date || "";
+      const dateB = b.occurred_at || b.created_at || b.movement_date || "";
+      return dateB.localeCompare(dateA);
+    });
+}
+
+export function totalForCategory(categoryId, monthKey = null) {
+  return getCategoryMovements(categoryId, monthKey)
+    .filter(movement => movement.source_type !== "manual_cancelled")
     .reduce((sum, movement) => sum + Math.abs(Number(movement.amount)), 0);
 }
 
-export function getFinancialOverview() {
+export function getFinancialOverview(monthKey = null) {
   const openingMovement = getMovements().find(m => m.source_type === "opening");
-  const initialBalance = openingMovement ? Number(openingMovement.amount) : 0;
-  const transactions = getMovements().filter(
+  const openingBalance = openingMovement ? Number(openingMovement.amount) : 0;
+  const allTransactions = getMovements().filter(
     m => m.source_type !== "opening" && m.source_type !== "manual_cancelled",
   );
+  const transactions = monthKey
+    ? allTransactions.filter(m => m.month_key === monthKey)
+    : allTransactions;
+  const initialBalance = monthKey
+    ? openingBalance + allTransactions
+      .filter(m => m.month_key < monthKey)
+      .reduce((sum, movement) => sum + Number(movement.amount), 0)
+    : openingBalance;
   const totalRevenue = transactions
     .filter(m => Number(m.amount) > 0)
     .reduce((sum, movement) => sum + Number(movement.amount), 0);
@@ -621,9 +645,10 @@ export function getFinancialOverview() {
   };
 }
 
-export function getFinancialHistory() {
+export function getFinancialHistory(monthKey = null) {
   return getMovements()
     .filter(m => m.source_type !== "opening")
+    .filter(m => !monthKey || m.month_key === monthKey)
     .slice()
     .sort((a, b) => {
       const dateA = a.occurred_at || a.created_at || a.movement_date || "";

@@ -53,6 +53,9 @@ export function getWeeksOfMonth(monthKey) {
 
 export function activeMonthKey() { return getMonthKey(getWeekStart(new Date())); }
 
+/** Mois civil courant, indépendamment du découpage hebdomadaire des autres modules. */
+export function currentCalendarMonthKey() { return getMonthKey(new Date()); }
+
 export function monthsRange(startMonth = APP_START_MONTH) {
   return monthsRangeFrom(startMonth);
 }

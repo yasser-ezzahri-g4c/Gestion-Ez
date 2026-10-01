@@ -1,6 +1,6 @@
 import { getActiveModule } from "../shared/router.js";
 import { addManualExpense, addManualRevenue, addWalletCategory, cancelManualMovement, deleteWalletCategory, ensureDefaultWalletCategories, loadWalletData, setOpeningBalance, updateWalletCategory } from "../shared/wallet.js";
-import { activeMonthKey, flash } from "../shared/utils.js";
+import { currentCalendarMonthKey, flash } from "../shared/utils.js";
 import { ui } from "./data.js";
 import { render } from "./render.js";
 import { createFinanceEvent, loadFinanceEvents } from "./finance-events.js";
@@ -12,14 +12,24 @@ export function setupEvents() {
 
 async function onClick(event) {
   if (getActiveModule() !== "tresorerie") return;
-  if (event.target.classList?.contains("overlay") && event.target.dataset.overlayClose === "modal") {
-    ui.modal = null; render(); return;
+  if (event.target.classList?.contains("overlay")) {
+    if (event.target.dataset.overlayClose === "modal") ui.modal = null;
+    if (event.target.dataset.overlayClose === "month") ui.monthPanelOpen = false;
+    render(); return;
   }
   const target = event.target.closest("[data-action]");
   if (!target) return;
   const action = target.dataset.action;
   if (action === "set-subtab") { ui.subTab = target.dataset.tab; render(); }
+  else if (action === "open-month-panel") { ui.monthPanelOpen = true; render(); }
+  else if (action === "close-month-panel") { ui.monthPanelOpen = false; render(); }
+  else if (action === "select-month") {
+    ui.viewedMonthKey = target.dataset.month;
+    ui.monthPanelOpen = false;
+    render();
+  }
   else if (action === "open-quick-amount") { ui.modal = { type: "quick-amount", categoryId: target.dataset.categoryId }; render(); }
+  else if (action === "open-category-details") { ui.modal = { type: "category-details", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-add-category") { ui.modal = { type: "add-category", direction: target.dataset.direction }; render(); }
   else if (action === "open-edit-category") { ui.modal = { type: "edit-category", categoryId: target.dataset.categoryId }; render(); }
   else if (action === "open-delete-category") { ui.modal = { type: "delete-category", categoryId: target.dataset.categoryId }; render(); }
@@ -56,8 +66,8 @@ function setSegmentValue(target, inputName, firstClass, secondClass) {
 
 async function addAmount(categoryId, direction, amount, label) {
   return direction === "revenue"
-    ? addManualRevenue(activeMonthKey(), categoryId, amount, label)
-    : addManualExpense(activeMonthKey(), categoryId, amount, label);
+    ? addManualRevenue(currentCalendarMonthKey(), categoryId, amount, label)
+    : addManualExpense(currentCalendarMonthKey(), categoryId, amount, label);
 }
 
 async function onSubmit(event) {
@@ -70,7 +80,7 @@ async function onSubmit(event) {
   if (submit) submit.disabled = true;
   try {
     if (form.dataset.form === "set-initial-balance") {
-      const saved = await setOpeningBalance(activeMonthKey(), form.amount.value);
+      const saved = await setOpeningBalance(currentCalendarMonthKey(), form.amount.value);
       if (!saved) return;
       await loadWalletData();
       await ensureDefaultWalletCategories();

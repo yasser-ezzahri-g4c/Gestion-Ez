@@ -1,4 +1,4 @@
-import { activeMonthKey } from "../shared/utils.js";
+import { currentCalendarMonthKey } from "../shared/utils.js";
 import { loadWalletData } from "../shared/wallet.js";
 import { ui, fetchStateFromSupabase, loadMaladieLookup } from "./data.js";
 import { render } from "./render.js";
@@ -18,7 +18,7 @@ export function resetModule() {
 }
 
 export async function activate() {
-  if (!ui.viewedMonthKey) ui.viewedMonthKey = activeMonthKey();
+  if (!ui.viewedMonthKey) ui.viewedMonthKey = currentCalendarMonthKey();
   if (!eventsReady) {
     setupEvents();
     eventsReady = true;
