@@ -1,5 +1,5 @@
-import { currentCalendarMonthKey } from "../shared/utils.js";
-import { loadWalletData } from "../shared/wallet.js";
+import { currentCalendarMonthKey, flash } from "../shared/utils.js";
+import { loadWalletData, repairManualMovementMonthKeys } from "../shared/wallet.js";
 import { ui, fetchStateFromSupabase, loadMaladieLookup } from "./data.js";
 import { render } from "./render.js";
 import { setupEvents } from "./events.js";
@@ -29,7 +29,11 @@ export async function activate() {
   } else {
     await Promise.all([loadWalletData(), loadMaladieLookup(), loadFinanceEvents()]);
   }
+  const repaired = await repairManualMovementMonthKeys();
   render();
+  if (repaired > 0) {
+    flash(`${repaired} transaction${repaired > 1 ? "s ont" : " a"} été replacée${repaired > 1 ? "s" : ""} dans le bon mois.`);
+  }
 }
 
 export { render };

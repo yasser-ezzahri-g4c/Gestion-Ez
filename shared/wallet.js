@@ -55,6 +55,37 @@ export async function loadWalletData() {
   return { movements: movementsCache, categories: categoriesCache };
 }
 
+/**
+ * Répare les anciennes saisies manuelles enregistrées dans le mois de début de
+ * semaine au lieu de leur mois civil réel (ex. 01/10 classé en septembre).
+ */
+export async function repairManualMovementMonthKeys() {
+  const candidates = getMovements().filter(movement => {
+    if (!["manual", "manual_cancelled"].includes(movement.source_type)) return false;
+    const calendarMonth = String(movement.movement_date || "").slice(0, 7);
+    return /^\d{4}-\d{2}$/.test(calendarMonth) && movement.month_key !== calendarMonth;
+  });
+  if (!candidates.length) return 0;
+
+  let repaired = 0;
+  for (const movement of candidates) {
+    const calendarMonth = movement.movement_date.slice(0, 7);
+    const { data, error } = await supabaseClient.from("wallet_movements")
+      .update({ month_key: calendarMonth })
+      .eq("id", movement.id)
+      .select()
+      .single();
+    if (error) {
+      flash(getErrorMessage(error, "Impossible de corriger la période d’une transaction."), true);
+      continue;
+    }
+    const index = movementsCache.findIndex(item => item.id === movement.id);
+    if (index >= 0) movementsCache[index] = data;
+    repaired += 1;
+  }
+  return repaired;
+}
+
 export function getMovements() {
   return movementsCache || [];
 }
